@@ -5,6 +5,8 @@
 """
 
 from .base import BaseWorker
+from .claude_worker import ClaudeCodeWorker
+from .factory import build_claude_factory
 from .manager import AgentWorkerManager
 
-__all__ = ["BaseWorker", "AgentWorkerManager"]
+__all__ = ["BaseWorker", "AgentWorkerManager", "ClaudeCodeWorker", "build_claude_factory"]

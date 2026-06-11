@@ -36,6 +36,21 @@ class AgentWorkerManager:
                 env=env or self._default_env,
             )
 
+    async def dispatch_to(
+        self,
+        spec: TaskSpec,
+        *,
+        factory: Callable[[str], AgentWorker],
+        on_event: EventSink,
+        can_use_tool: CanUseTool,
+        env: dict[str, str] | None = None,
+    ) -> WorkerResult:
+        """get_or_create(该项目的持久 worker) 然后 dispatch。"""
+        worker = self.get_or_create(spec.project_id, factory)
+        return await self.dispatch(
+            spec, worker=worker, on_event=on_event, can_use_tool=can_use_tool, env=env,
+        )
+
     async def interrupt(self, project_id: str) -> None:
         if w := self._workers.get(project_id):
             await w.interrupt()

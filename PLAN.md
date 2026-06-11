@@ -49,7 +49,7 @@
 | **P0 承重墙 spike** | 证明核心可行（**对真实 ccswitch+DeepSeek**） | `spikes/p0_spike.py`：N 个持久 client 并发、各自 cwd、can_use_tool 接控制台、注入 env | 2 项目并行跑通、写操作被审批拦住、tool-use 在 DeepSeek 后端不崩 | claude-agent-sdk + ccswitch |
 | **P1 编排 MVP** | 端到端编排进 nanobot | AgentWorker + ClaudeCodeWorker(持久会话) + Manager + dispatch 工具 + 协议 | 大脑下"分派到项目甲/乙"，两 worker 隔离跑、结构化结果回收、会话可 resume | P0 |
 | **P2 人在环 + 验证** | 安全且正确 | PermissionPolicy(plan→批→acceptEdits) + Verifier + 重试/卡死检测 | 危险操作必被拦、错误结果被打回、卡死能 interrupt | P1 |
-| **P3 记忆** | 复利 / 自进化 | FileMemoryStore + 每项目文本库 + Dream 扩展 + 验证晋升 + 协调黑板 | 跨会话召回项目事实、错误经验进不了共享池、playbook 复用 | P1（晋升门依赖 P2） |
+| **P3 记忆 + 自进化** | 复利 / 自进化 | FileMemoryStore + 每项目文本库 + Dream 扩展 + 验证晋升 + 协调黑板 + **自进化循环(见 §4b)** | 跨会话召回事实、错误经验进不了共享池、**skill 从验证过的经验自动结晶并复用** | P1（晋升门依赖 P2） |
 | **P4 驾驶舱 UI** | 打开即用 | Electron 多栏 + 实时流 + 点击审批（每个持久会话=一"窗口"） | 单窗口看全部 worker、点按钮批/拒 | P1–P3（最小 web 视图可在 P2 先有） |
 | **P5 铺开** | 异构 + 接入 + 可观测 | CliWorker(Codex/Gemini) + 每项目 MCP + trace/成本归因 + 项目登记表 | 同屏跑 Claude+Codex、worker 能用浏览器/Obsidian、每 worker 成本可见 | P1–P4 |
 
@@ -102,6 +102,28 @@
 | 可观测 / trace | 新建 | 结构化 trace + 成本归因 | `orchestrator/trace.py` | P5 | ✓ |
 
 ---
+
+## 4b. 自进化循环（skills，对齐 Hermes；属 P3）
+
+把"验证通过的经验"自动结晶成可复用 skill，越用越强。对齐 Nous Hermes 的 skill 自进化，
+但**验证优先 + 多 agent**。
+
+闭环：`dispatch → execute → verify → 结晶 skill → 召回注入 → 用中 patch → 按用量 curate`
+
+四件新增（落点 `nanobot_plus/memory/`，P3 实现）：
+
+| 件 | 做什么 | 落点 |
+|---|---|---|
+| **SkillSynthesizer** | 吃「已验证 WorkerResult + episode」→ 吐结构化 playbook（步骤/坑/验证步骤/依赖） | `memory/skill_synthesizer.py` |
+| **召回→注入** | 相关 playbook 经 `context_refs` 喂回 worker（也可投成 Claude Code skill） | `memory/mem_router.py` + `agents/claude_worker.py` |
+| **Curator** | use_count/patch_count 统计 + active/stale/archived 老化（借 Hermes 30/90 天阈值） | `memory/curator.py` |
+| **用中 patch** | skill 用后偏差则回写修订（接 P2 的 retry/verifier） | `memory/skill_synthesizer.py` + `orchestrator/verifier.py` |
+
+相对 Hermes 的两点增量（= 护城河）：
+1. **结晶前过独立 Verifier** —— 不把错解固化、不让它扩散（堵综述 M3「错误经验传播」）。Hermes 是完成即结晶、靠事后用量淘汰；我们前置正确性，二者最好都要。
+2. **多 agent** —— skill 分**项目私有** + **跨项目共享池**（验证后晋升、带 provenance）。单 agent 的 Hermes 不面对这问题，原生 Agent Teams 也没做透。
+
+skill 分两层：**worker 层**（项目内即时复用，可接 agentskills.io 社区库）+ **编排器层**（跨项目、验证晋升、全局 curate）。
 
 ## 5. 三个最大风险 + 对策
 
