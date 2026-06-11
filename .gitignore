@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Vendored base framework — do NOT commit a copy of upstream nanobot into this repo.
+# Develop against it with:  pip install -e ./nanobot   (or depend on PyPI nanobot-ai)
+# If you DO want to vendor it, delete the line below AND remove nanobot/.git first.
+/nanobot/
+
+# nanobot-plus runtime
+.nbplus/
+*.sqlite

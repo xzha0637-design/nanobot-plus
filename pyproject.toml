@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nanobot-plus"
+version = "0.0.1"
+description = "Orchestration layer over nanobot: command many isolated Claude Code (and other CLI agent) sessions with human-in-the-loop approval, verification, and memory."
+requires-python = ">=3.11"
+dependencies = [
+  "nanobot-ai",        # base framework = the orchestrator brain. Dev: pip install -e ./nanobot
+  "claude-agent-sdk",  # drives persistent Claude Code worker sessions (cwd isolation + can_use_tool)
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "ruff"]
+
+[project.scripts]
+nanobot-plus = "nanobot_plus.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nanobot_plus"]
+
+[tool.ruff]
+line-length = 100
