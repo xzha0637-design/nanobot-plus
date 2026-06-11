@@ -9,17 +9,24 @@ from __future__ import annotations
 from typing import Any, Awaitable, Callable
 
 # 关键步骤(默认要审批)：写 / 执行 / 出网
-KEY_TOOLS = {"Write", "Edit", "Bash", "WebFetch"}
+KEY_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit", "Bash", "WebFetch"}
 LOW_RISK = {"Read", "Grep", "Glob", "LS"}
 
 
 class PermissionPolicy:
-    def __init__(self, ask_human: Callable[[str, dict[str, Any]], Awaitable[bool]]) -> None:
+    def __init__(
+        self,
+        ask_human: Callable[[str, dict[str, Any]], Awaitable[bool]],
+        *,
+        auto_allow: set[str] | None = None,   # 预批准的工具名（直接放行）
+        remember_approved: bool = True,       # 人批准高风险后，本会话内记住
+    ) -> None:
         self._ask = ask_human
-        self._remembered: set[str] = set()      # "以后自动放行"的规则键
+        self._remembered: set[str] = set(auto_allow or ())
+        self._remember_approved = remember_approved
 
     def _key(self, tool_name: str, input_data: dict[str, Any]) -> str:
-        return tool_name                        # TODO(P2): 细到 Bash(rm *) 这种 scope
+        return tool_name                      # TODO: 细到 Bash(rm *) 这种 scope
 
     def _risk(self, tool_name: str, input_data: dict[str, Any]) -> str:
         if tool_name in LOW_RISK:
@@ -29,15 +36,16 @@ class PermissionPolicy:
         return "medium"
 
     async def can_use_tool(self, tool_name: str, input_data: dict[str, Any], context: Any):
-        # 延迟导入，避免包导入期强依赖 SDK
         from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
 
-        if self._risk(tool_name, input_data) == "low" or self._key(tool_name, input_data) in self._remembered:
+        key = self._key(tool_name, input_data)
+        if self._risk(tool_name, input_data) == "low" or key in self._remembered:
             return PermissionResultAllow()
 
         ok = await self._ask(tool_name, input_data)
         if not ok:
             return PermissionResultDeny(message="用户拒绝")
-        # TODO(P2): 若用户选"以后总是允许" → self._remembered.add(key)
-        #           并用 PermissionResultAllow(updated_permissions=[...]) 落到会话规则。
+        if self._remember_approved:
+            self._remembered.add(key)         # 本会话内同类自动放行
+            # TODO: 用 PermissionResultAllow(updated_permissions=[...]) 把规则落到 SDK 会话
         return PermissionResultAllow()
