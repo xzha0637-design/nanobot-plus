@@ -39,12 +39,22 @@ pip install -e .                  # this package
 
 ## Status
 
-Scaffold only — every module is a stub tied to a PLAN.md phase (`# TODO(Pn)`).
-Start at **P0**:
+Scaffold only — every module is a stub tied to a PLAN.md phase (`# TODO(Pn)`),
+**except P0** which is a real verification harness.
+
+**P0** proves the load-bearing core with explicit PASS/FAIL checks:
+1. concurrency + cwd isolation (2 workers, separate dirs, no cross-contamination)
+2. approval gating (deny → file not created; allow → created)
+3. persistent-session mid-term memory (tell it a codeword, then make it write the codeword in a later turn)
+
+The backend (base_url / key / model) is whatever your `~/.claude/settings.json`
+says — configure it with ccswitch; the harness injects nothing.
 
 ```bash
-# set your ccswitch → DeepSeek env first (ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN)
-python spikes/p0_spike.py
+python -m venv .venv && source .venv/bin/activate
+pip install claude-agent-sdk        # claude CLI must also be installed
+# configure your backend via ccswitch (edits ~/.claude/settings.json), then:
+python spikes/p0_spike.py           # exits 0 if all checks pass
 ```
 
 ## Note on the vendored `nanobot/`
